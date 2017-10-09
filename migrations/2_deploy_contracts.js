@@ -1,6 +1,3 @@
-var ConvertLib = artifacts.require("./ConvertLib.sol");
-var MetaCoin = artifacts.require("./MetaCoin.sol");
-
 const AthenaLabsICO = artifacts.require("./AthenaLabsICO.sol");
 
 module.exports = function(deployer, network, accounts) {
@@ -23,20 +20,18 @@ module.exports = function(deployer, network, accounts) {
     const endOfRound5  = endOfRound4 + (5 * 60);
     const endOfRound6  = endOfRound5 + (5 * 60);
     const endTime      = endOfRound6 + (5 * 60);
+    const maxFinalizationTime = endTime + (60*60);
     const mainWallet   = accounts[0];
     const adminAccount1 = accounts[1];
     const adminAccount2 = accounts[1];
     const adminAccount3 = accounts[1];
-    const readAccount1 = accounts[2];
-    const readAccount2 = accounts[2];
-    const readAccount3 = accounts[2];
 
     // END OF TESTING
 
     deployer.deploy( AthenaLabsICO
                    , startTime
                    , [endOfRound1, endOfRound2, endOfRound3, endOfRound4, endOfRound5, endOfRound6, endTime]
+                   , maxFinalizationTime
                    , mainWallet
-                   , [adminAccount1, adminAccount2, adminAccount3]
-                   , [readAccount1, readAccount2, readAccount3]);
+                   , [adminAccount1, adminAccount2, adminAccount3]);
 };

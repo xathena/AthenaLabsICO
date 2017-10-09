@@ -90,33 +90,45 @@ contract('AthenaLabsICO', function ([_, admin, wallet, investor, reader, owner])
     this.round5End = this.round4End + duration.days(7);
     this.round6End = this.round5End + duration.days(8);
     this.endTime   = this.round6End + duration.days(9);
-    this.afterEndTime = this.endTime + duration.seconds(1)
-
+    this.afterEndTime = this.endTime + duration.seconds(1);
+    this.maxFinalizationTime = this.endTime + duration.weeks(1);
+    this.afterMaxFinalizationTime = this.maxFinalizationTime + duration.seconds(1);
+    const value = ether(1);
     this.ico = await AthenaLabsICO.new(
         this.startTime
       , [ this.round1End, this.round2End, this.round3End, this.round4End
         , this.round5End, this.round6End, this.endTime]
+      , this.maxFinalizationTime
       , wallet
       , [ admin, admin, admin ]
-      , [ reader, reader, reader ]
       , {from: owner});
 
     this.athtoken = AthenaLabsToken.at(await this.ico.token())
   })
 
-  it('should be token owner', async function () {
-    const owner = await this.athtoken.owner()
-    owner.should.equal(this.ico.address)
-  })
+  describe('accepting payments', function () {
 
-  it('should be ended only after end', async function () {
-    let ended = await this.ico.hasEnded()
-    ended.should.equal(false)
-    await increaseTimeTo(this.afterEndTime)
-    ended = await this.ico.hasEnded()
-    ended.should.equal(true)
-  })
+    it('should be token owner', async function () {
+      const owner = await this.athtoken.owner()
+      owner.should.equal(this.ico.address)
+    })
 
+    it('should be ended only after end', async function () {
+      let ended = await this.ico.hasEnded()
+      ended.should.equal(false)
+      await increaseTimeTo(this.afterEndTime)
+      ended = await this.ico.hasEnded()
+      ended.should.equal(true)
+    })
+
+    it('owner should be token owner after finalization', async function () {
+      await increaseTimeTo(this.afterEndTime)
+      await this.ico.finalize({from: owner})
+      await this.ico.destroy({from: owner})
+      const final_owner = await this.athtoken.owner()
+      final_owner.should.equal(owner)
+    })
+  })
 
   describe('accepting payments', function () {
     const value = ether(1)
@@ -484,15 +496,29 @@ contract('AthenaLabsICO', function ([_, admin, wallet, investor, reader, owner])
   })
 
   describe('ICO pausing', function () {
-    it('can pause', async function () {
+    it('any admin can pause', async function () {
       await increaseTimeTo(this.startTime)
-      await this.ico.pause({from: owner}).should.be.fulfilled
+      await this.ico.pause({from: admin}).should.be.fulfilled
     })
 
-    it('can unpause', async function () {
+    it('owner can unpause', async function () {
       await increaseTimeTo(this.startTime)
       await this.ico.pause({from: owner})
       await this.ico.unpause({from: owner}).should.be.fulfilled
+    })
+
+    it('admin cannot unpause', async function () {
+      await increaseTimeTo(this.startTime)
+      await this.ico.pause({from: admin})
+      await this.ico.unpause({from: admin}).should.be.rejectedWith(EVMThrow)
+    })
+
+    it('anyone can unpause after 1 week', async function () {
+      await increaseTimeTo(this.startTime)
+      await this.ico.pause({from: admin})
+      await this.ico.unpause({from: admin}).should.be.rejectedWith(EVMThrow)
+      await increaseTimeTo(this.startTime + duration.weeks(1) + duration.seconds(1))
+      await this.ico.unpause({from: investor}).should.be.fulfilled
     })
 
     it('cannot buy tokens when paused', async function () {
@@ -535,6 +561,57 @@ contract('AthenaLabsICO', function ([_, admin, wallet, investor, reader, owner])
       await this.athtoken.burn(12345, {from: investor})
       const post = await this.athtoken.balanceOf(investor)
       post.minus(pre).should.be.bignumber.equal(-12345)
+    })
+  })
+
+  describe('finalization', function () {
+    it('anyone can finalize ICO after maxFinalizationTime', async function () {
+      await increaseTimeTo(this.afterMaxFinalizationTime)
+      await this.ico.finalize({from: investor}).should.be.fulfilled
+    })
+
+    it('anyone can finalize Token after maxFinalizationTime', async function () {
+      await increaseTimeTo(this.afterMaxFinalizationTime)
+      await this.athtoken.finalize({from: investor}).should.be.fulfilled
+    })
+  })
+
+  describe('withdrawal', function () {
+    it('noone can withdraw before finalization', async function () {
+      await increaseTimeTo(this.startTime)
+      await this.ico.withdraw({from: owner}).should.be.rejectedWith(EVMThrow)
+    })
+
+    it('owner can withdraw after finalization', async function () {
+      await increaseTimeTo(this.afterEndTime)
+      await this.ico.finalize({from: owner})
+      await this.ico.withdraw({from: owner}).should.be.fulfilled
+    })
+
+    it('admin can withdraw after maxFinalizationTime', async function () {
+      await increaseTimeTo(this.afterMaxFinalizationTime)
+      await this.ico.finalize({from: admin})
+      await this.ico.withdraw({from: admin}).should.be.fulfilled
+    })
+
+    it('nonadmin cannot withdraw even after maxFinalizationTime', async function () {
+      await increaseTimeTo(this.afterMaxFinalizationTime)
+      await this.ico.finalize({from: investor}).should.be.fulfilled
+      await this.ico.withdraw({from: investor}).should.be.rejectedWith(EVMThrow)
+    })
+  })
+
+  describe('token minting', function () {
+    it('only contract can mint tokens', async function () {
+      const amount = ether(10)
+      await this.athtoken.mint(investor, amount).should.be.rejectedWith(EVMThrow)
+    })
+
+    it('cannot mint token after finalization', async function () {
+      const amount = ether(10)
+      await increaseTimeTo(this.afterEndTime)
+      await this.ico.finalize({from: owner})
+      await this.athtoken.mint(investor, amount, {from: owner}).should.be.rejectedWith(EVMThrow)
     })
   })
 

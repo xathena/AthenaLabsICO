@@ -12,15 +12,13 @@ contract AthenaLabsICO is Ownable, Pausable {
   uint256 public startTime;
   uint256[7] public endOfRounds;
   uint256 public endTime;
+  uint256 public maxFinalizationTime;
 
   // multisig addr for transfers
   address public mainWallet;
 
   // addrs for whitelist, remove from whitelist
   address[3] public adminAccounts;
-
-  // addrs for view internal state
-  address[3] public readAccounts;
 
   // rate ATH : ETH
   uint256 public rate;
@@ -34,6 +32,8 @@ contract AthenaLabsICO is Ownable, Pausable {
   uint256 public weiTotalBountiesGiven;
 
   bool public isFinalized = false;
+
+  uint256 public maxUnpauseTime;
 
   // ID authorization of Investors
 
@@ -76,9 +76,9 @@ contract AthenaLabsICO is Ownable, Pausable {
 
   function AthenaLabsICO( uint256 _startTime
                         , uint256[7] _endOfRounds
+                        , uint256 _maxFinalizationTime
                         , address _mainWallet
-                        , address[3] _adminAccounts
-                        , address[3] _readAccounts) {
+                        , address[3] _adminAccounts) {
     require(_startTime   >= now);
     require(_endOfRounds.length == 7);
     require(_endOfRounds[0] >= _startTime);
@@ -88,13 +88,11 @@ contract AthenaLabsICO is Ownable, Pausable {
     require(_endOfRounds[4] >= _endOfRounds[3]);
     require(_endOfRounds[5] >= _endOfRounds[4]);
     require(_endOfRounds[6] >= _endOfRounds[5]);
+    require(_maxFinalizationTime >= _endOfRounds[6]);
     require(_mainWallet != 0x0);
     require(_adminAccounts[0] != 0x0);
     require(_adminAccounts[1] != 0x0);
     require(_adminAccounts[2] != 0x0);
-    require(_readAccounts[0] != 0x0);
-    require(_readAccounts[1] != 0x0);
-    require(_readAccounts[2] != 0x0);
 
     startTime   = _startTime;
     endOfRounds = _endOfRounds;
@@ -103,10 +101,11 @@ contract AthenaLabsICO is Ownable, Pausable {
     mainWallet  = _mainWallet;
 
     adminAccounts      = _adminAccounts;
-    readAccounts       = _readAccounts;
+    maxFinalizationTime = _maxFinalizationTime;
 
     rate               = 800;
     token = new AthenaLabsToken();
+    token.setMaxFinalizationTime(_maxFinalizationTime);
 
     weiTotalAthCap = 200000000 * 10 ** token.decimals();
 
@@ -122,10 +121,23 @@ contract AthenaLabsICO is Ownable, Pausable {
     _;
   }
 
+  function setAdminAccounts(address[3] _adminAccounts) onlyOwner public {
+    adminAccounts = _adminAccounts;
+  }
+
   // admins can pause (but not unpause!)
   function pause() canAdmin whenNotPaused public {
     paused = true;
+    maxUnpauseTime = now + 7*24*60*60; // +1 week
     Pause();
+  }
+
+  function unpause() whenPaused public {
+    if (maxUnpauseTime > now) {
+      require(msg.sender == owner);
+    }
+    paused = false;
+    Unpause();
   }
 
   // fallback function can be used to buy tokens
@@ -312,7 +324,8 @@ contract AthenaLabsICO is Ownable, Pausable {
    * @dev Must be called after crowdsale ends, to do some extra finalization
    * work. Calls the contract's finalization function.
    */
-  function finalize() onlyOwner public {
+  function finalize() public {
+    require((msg.sender == owner) || (maxFinalizationTime <= now));
     require(!isFinalized);
     require(hasEnded());
 
@@ -324,6 +337,19 @@ contract AthenaLabsICO is Ownable, Pausable {
 
   function finalization() internal {
     token.finalize();
+  }
+
+  function withdraw() public {
+    require(isFinalized);
+    if (now < maxFinalizationTime) {
+      require(msg.sender == owner);
+    } else {
+      require(  (msg.sender == adminAccounts[0])
+              ||(msg.sender == adminAccounts[1])
+              ||(msg.sender == adminAccounts[2])
+              ||(msg.sender == owner));
+    }
+    msg.sender.transfer(this.balance);
   }
 
   function destroy() onlyOwner public {

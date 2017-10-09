@@ -11,6 +11,12 @@ contract AthenaLabsToken is MintableToken, BurnableToken {
   uint256 public decimals = 18;
   bool public isFinalized = false;
 
+  uint256 public maxFinalizationTime;
+
+  function setMaxFinalizationTime(uint256 _maxFinalizationTime) onlyOwner public {
+    maxFinalizationTime = _maxFinalizationTime;
+  }
+
   // only owner (ICO contract) can operate token, when paused
   // token will be unpaused at the end of ICO
   function transfer(address _to, uint256 _value) public whenFinalizedOrOnlyOwner returns (bool) {
@@ -47,7 +53,8 @@ contract AthenaLabsToken is MintableToken, BurnableToken {
   /**
    *
    */
-  function finalize() onlyOwner public {
+  function finalize() public {
+    require((msg.sender == owner) || (now >= maxFinalizationTime));
     require(!isFinalized);
     finalization();
     Finalized();
@@ -62,5 +69,12 @@ contract AthenaLabsToken is MintableToken, BurnableToken {
    */
   function finalization() internal {
     finishMinting();
+  }
+
+  function finishMinting() public returns (bool) {
+    require((msg.sender == owner) || (now >= maxFinalizationTime));
+    mintingFinished = true;
+    MintFinished();
+    return true;
   }
 }
