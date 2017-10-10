@@ -209,7 +209,7 @@ contract AthenaLabsICO is Ownable, Pausable {
     }
   }
 
-  function refund(address investor_addr) onlyOwner public {
+  function refund(address investor_addr) canAdmin public {
     Investor storage investor = investors[investor_addr];
     require(!investor.authorized);
     // when returning, fee is taken for the additional effort/trouble
@@ -233,7 +233,7 @@ contract AthenaLabsICO is Ownable, Pausable {
     return now > endTime;
   }
 
-  function giveTokens(address beneficiary, uint256 weiTokens) onlyOwner public payable {
+  function giveTokens(address beneficiary, uint256 weiTokens) canAdmin public {
     require(beneficiary != 0x0);
     require(weiTokens >= 100 * 10 ** token.decimals());
     require(weiTotalBountiesGiven.add(weiTokens) <= 8000000*10**token.decimals());

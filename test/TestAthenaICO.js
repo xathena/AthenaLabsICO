@@ -458,6 +458,15 @@ contract('AthenaLabsICO', function ([_, admin, wallet, investor, reader, owner])
       const post = await this.athtoken.balanceOf(investor)
       post.minus(pre).should.be.bignumber.equal(value)
     })
+
+    it('admins can award', async function () {
+      const value = 200 * 10 ** 18;
+      await increaseTimeTo(this.startTime)
+      const pre = await this.athtoken.balanceOf(investor)
+      await this.ico.giveTokens(investor, value, {from: admin}).should.be.fulfilled
+      const post = await this.athtoken.balanceOf(investor)
+      post.minus(pre).should.be.bignumber.equal(value)
+    })
   })
 
   describe('finalization', function () {
@@ -573,6 +582,31 @@ contract('AthenaLabsICO', function ([_, admin, wallet, investor, reader, owner])
     it('anyone can finalize Token after maxFinalizationTime', async function () {
       await increaseTimeTo(this.afterMaxFinalizationTime)
       await this.athtoken.finalize({from: investor}).should.be.fulfilled
+    })
+  })
+
+  describe('refunding', function () {
+    it('admins can refund', async function () {
+      const value = ether(10)
+      await increaseTimeTo(this.startTime)
+      await this.ico.buyTokens({value, from: investor})
+      const preinv = await web3.eth.getBalance(investor)
+      const prewal = await web3.eth.getBalance(wallet)
+      const preath = await this.athtoken.totalSupply()
+      await this.ico.refund(investor, {from: admin}).should.be.fulfilled
+      const postinv = await web3.eth.getBalance(investor)
+      const postwal = await web3.eth.getBalance(wallet)
+      const postath = await this.athtoken.totalSupply()
+      postinv.minus(preinv).should.be.bignumber.equal(finney(9900))
+      postwal.minus(prewal).should.be.bignumber.equal(finney(100))
+      preath.minus(postath).should.be.bignumber.equal(value * (800 + /* time bonus */ 320) + 1200*10**18)
+    })
+
+    it('non admin cannot refund', async function () {
+      const value = ether(10)
+      await increaseTimeTo(this.startTime)
+      await this.ico.buyTokens({value, from: investor})
+      await this.ico.refund(investor, {from: investor}).should.be.rejectedWith(EVMThrow)
     })
   })
 
