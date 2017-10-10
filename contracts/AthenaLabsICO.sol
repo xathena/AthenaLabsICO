@@ -78,7 +78,7 @@ contract AthenaLabsICO is Ownable, Pausable {
                         , uint256[7] _endOfRounds
                         , uint256 _maxFinalizationTime
                         , address _mainWallet
-                        , address[3] _adminAccounts) {
+                        , address[3] _adminAccounts) public {
     require(_startTime   >= now);
     require(_endOfRounds.length == 7);
     require(_endOfRounds[0] >= _startTime);
@@ -125,6 +125,10 @@ contract AthenaLabsICO is Ownable, Pausable {
     adminAccounts = _adminAccounts;
   }
 
+  function setMainWallet(address _mainWallet) onlyOwner public {
+    mainWallet = _mainWallet;
+  }
+
   // admins can pause (but not unpause!)
   function pause() canAdmin whenNotPaused public {
     paused = true;
@@ -141,7 +145,7 @@ contract AthenaLabsICO is Ownable, Pausable {
   }
 
   // fallback function can be used to buy tokens
-  function () whenNotPaused payable {
+  function () whenNotPaused payable public {
     buyTokens();
   }
 
@@ -249,7 +253,7 @@ contract AthenaLabsICO is Ownable, Pausable {
     return time.add(quantity).add(early);
   }
 
-  function calculateTimeBonuses(uint256 weiEther) internal returns (uint256) {
+  function calculateTimeBonuses(uint256 weiEther) internal constant returns (uint256) {
     if (startTime <= now && now < endOfRounds[0]) {
       return weiEther.mul(320); // 40% of rate
     }
@@ -271,7 +275,7 @@ contract AthenaLabsICO is Ownable, Pausable {
     return 0;
   }
 
-  function calculateQuantityBonuses(uint256 weiEther) internal returns (uint256) {
+  function calculateQuantityBonuses(uint256 weiEther) internal constant returns (uint256) {
     if (weiEther >= 500 ether) {
       return weiEther.mul(240); // 30% of rate
     }

@@ -610,6 +610,28 @@ contract('AthenaLabsICO', function ([_, admin, wallet, investor, reader, owner])
     })
   })
 
+  describe('setters', function () {
+    it('owner can set admins', async function () {
+      const value = ether(10)
+      await increaseTimeTo(this.startTime)
+      await this.ico.setAdminAccounts([investor, investor,investor], {from: owner}).should.be.fulfilled
+      await this.ico.pause({from: investor}).should.be.fulfilled
+      await this.ico.unpause({from:owner})
+      await this.ico.pause({from: admin}).should.be.rejectedWith(EVMThrow)
+    })
+
+    it('owner can set wallet', async function () {
+      const value = ether(10)
+      await increaseTimeTo(this.startTime)
+      await this.ico.setMainWallet(admin, {from: owner}).should.be.fulfilled
+      await this.ico.authorize(investor, {from: owner})
+      const prewal = await web3.eth.getBalance(admin)
+      await this.ico.buyTokens({value, from: investor})
+      const postwal = await web3.eth.getBalance(admin)
+      postwal.minus(prewal).should.be.bignumber.equal(value)
+    })
+  })
+
   describe('withdrawal', function () {
     it('noone can withdraw before finalization', async function () {
       await increaseTimeTo(this.startTime)
