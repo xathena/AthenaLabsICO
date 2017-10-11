@@ -78,7 +78,7 @@ contract AthenaLabsICO is Ownable, Pausable {
                         , uint256[7] _endOfRounds
                         , uint256 _maxFinalizationTime
                         , address _mainWallet
-                        , address[3] _adminAccounts) public {
+                        , address[3] _adminAccounts) payable public {
     require(_startTime   >= now);
     require(_endOfRounds.length == 7);
     require(_endOfRounds[0] >= _startTime);

@@ -6,7 +6,7 @@ import 'zeppelin-solidity/contracts/lifecycle/Pausable.sol';
 
 contract AthenaLabsToken is MintableToken, BurnableToken {
 
-  string public name = "ATHENA LABS TOKEN";
+  string public name = "ATHENA TOKEN";
   string public symbol = "ATN";
   uint256 public decimals = 18;
   bool public isFinalized = false;
