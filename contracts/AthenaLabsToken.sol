@@ -6,7 +6,7 @@ import 'zeppelin-solidity/contracts/lifecycle/Pausable.sol';
 
 contract AthenaLabsToken is MintableToken, BurnableToken {
 
-  string public name = "ATHENA TOKEN";
+  string public name = "ATHENA";
   string public symbol = "ATN";
   uint256 public decimals = 18;
   bool public isFinalized = false;
@@ -56,23 +56,11 @@ contract AthenaLabsToken is MintableToken, BurnableToken {
   function finalize() public {
     require((msg.sender == owner) || (now >= maxFinalizationTime));
     require(!isFinalized);
-    finalization();
     Finalized();
-
     isFinalized = true;
   }
 
-  /**
-   * @dev Can be overridden to add finalization logic. The overriding function
-   * should call super.finalization() to ensure the chain of finalization is
-   * executed entirely.
-   */
-  function finalization() internal {
-    finishMinting();
-  }
-
-  function finishMinting() public returns (bool) {
-    require((msg.sender == owner) || (now >= maxFinalizationTime));
+  function finishMinting() public onlyOwner returns (bool) {
     mintingFinished = true;
     MintFinished();
     return true;
