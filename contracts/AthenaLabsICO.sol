@@ -158,6 +158,7 @@ contract AthenaLabsICO is Ownable, Pausable {
     uint256 weiEther = msg.value;
 
     // calculate token amount to be created and reduce slots for limited bonuses
+    // here we are abusing, that Athena is also 18 decimals
     uint256 weiTokens = weiEther.mul(rate).add(calculateAndRegisterBonuses(weiEther));
 
     require(weiTotalAthSold.add(weiTokens) <= weiTotalAthSoldCap);
@@ -195,10 +196,33 @@ contract AthenaLabsICO is Ownable, Pausable {
     return withinPeriod && nonTrivialPurchase;
   }
 
+  function authorizeOne(address investor_addr) canAdmin whenNotPaused public {
+    Investor storage investor = investors[investor_addr];
+    require(!investor.authorized);
+    uint256 athToSend = investor.athReceivedPending;
+    uint256 ethToForward = investor.etherInvestedPending;
+    investor.etherInvested = investor.etherInvested.add(ethToForward);
+    investor.athReceived = investor.athReceived.add(athToSend);
+    investor.authorized = true;
+    investor.etherInvestedPending = 0;
+    investor.athReceivedPending = 0;
+    if (!investor.exists) {
+      investor_list.push(investor_addr);
+      investor.exists = true;
+    }
+    Authorized(investor_addr);
+    if (ethToForward > 0) {
+      TokenPurchase(investor_addr, ethToForward, athToSend);
+      mainWallet.transfer(ethToForward);
+      token.transfer(investor_addr, athToSend);
+    }
+  }
+
   function authorize(address[] investor_addrs) canAdmin whenNotPaused public {
     require(investor_addrs.length <= 100);
+    Investor storage investor;
     for (uint i = 0; i < investor_addrs.length; i++) {
-      Investor storage investor = investors[investor_addrs[i]];
+      investor = investors[investor_addrs[i]];
       if (!investor.exists) {
         investor_list.push(investor_addrs[i]);
         investor.exists = true;
@@ -209,6 +233,8 @@ contract AthenaLabsICO is Ownable, Pausable {
         investor.etherInvested = investor.etherInvested.add(ethToForward);
         investor.athReceived = investor.athReceived.add(athToSend);
         investor.authorized = true;
+        investor.etherInvestedPending = 0;
+        investor.athReceivedPending = 0;
         Authorized(investor_addrs[i]);
         if (ethToForward > 0) {
           TokenPurchase(investor_addrs[i], ethToForward, athToSend);
@@ -243,12 +269,21 @@ contract AthenaLabsICO is Ownable, Pausable {
     return now > endTime;
   }
 
+  function giveTokensOne(address beneficiary, uint256 weiTokens) canAdmin public {
+    require(beneficiary != 0x0);
+    require(weiTokens >= 5 * weiOneToken);
+    require(weiTotalBountiesGiven.add(weiTokens) <= weiTotalBountiesGivenCap);
+    weiTotalBountiesGiven = weiTotalBountiesGiven.add(weiTokens);
+    TokenBounty(beneficiary, weiTokens);
+    token.transfer(beneficiary, weiTokens);
+  }
+
   function giveTokens(address[] beneficiaries, uint256 weiTokens) canAdmin public {
     require(beneficiaries.length <= 100);
-    require(weiTokens >= 100 * weiOneToken);
-    require(weiTotalBountiesGiven.add(weiTokens * beneficiaries.length) <= weiTotalBountiesGivenCap);
+    require(weiTokens >= 5 * weiOneToken);
+    require(weiTotalBountiesGiven.add(weiTokens.mul(beneficiaries.length)) <= weiTotalBountiesGivenCap);
+    weiTotalBountiesGiven = weiTotalBountiesGiven.add(weiTokens.mul(beneficiaries.length));
     for (uint i = 0; i < beneficiaries.length; i++) {
-      weiTotalBountiesGiven = weiTotalBountiesGiven.add(weiTokens);
       TokenBounty(beneficiaries[i], weiTokens);
       token.transfer(beneficiaries[i], weiTokens);
     }

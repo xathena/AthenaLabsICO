@@ -456,8 +456,8 @@ contract('AthenaLabsICO', function ([_, admin, wallet, investor, reader, owner])
       post.minus(pre).should.be.bignumber.equal(value)
     })
 
-    it('cannot award less than 100 ATH', async function () {
-      const value = 99 * 10 ** 18;
+    it('cannot award less than 5 ATH', async function () {
+      const value = 4 * 10 ** 18;
       await increaseTimeTo(this.startTime)
       await this.ico.giveTokens([investor], value, {from: owner}).should.be.rejectedWith(EVMThrow)
     })
@@ -477,6 +477,33 @@ contract('AthenaLabsICO', function ([_, admin, wallet, investor, reader, owner])
       await increaseTimeTo(this.startTime)
       const pre = await this.athtoken.balanceOf(investor)
       await this.ico.giveTokens([investor], value, {from: admin}).should.be.fulfilled
+      const post = await this.athtoken.balanceOf(investor)
+      post.minus(pre).should.be.bignumber.equal(value)
+    })
+
+    it('can give to multiple receivers', async function () {
+      const value = 200 * 10 ** 18;
+      await increaseTimeTo(this.startTime)
+      const pre = await this.athtoken.balanceOf(investor)
+      await this.ico.giveTokens([investor, investor, investor], value, {from: owner})
+      const post = await this.athtoken.balanceOf(investor)
+      post.minus(pre).should.be.bignumber.equal(3 * value)
+    })
+
+    it('can give to multiple different receivers', async function () {
+      const value = 200 * 10 ** 18;
+      await increaseTimeTo(this.startTime)
+      const pre = await this.athtoken.balanceOf(investor)
+      await this.ico.giveTokens([investor, owner, admin], value, {from: owner})
+      const post = await this.athtoken.balanceOf(investor)
+      post.minus(pre).should.be.bignumber.equal(value)
+    })
+
+    it('can give one', async function () {
+      const value = 200 * 10 ** 18;
+      await increaseTimeTo(this.startTime)
+      const pre = await this.athtoken.balanceOf(investor)
+      await this.ico.giveTokensOne(investor, value, {from: owner})
       const post = await this.athtoken.balanceOf(investor)
       post.minus(pre).should.be.bignumber.equal(value)
     })
@@ -700,6 +727,16 @@ contract('AthenaLabsICO', function ([_, admin, wallet, investor, reader, owner])
       await this.ico.buyTokens({value, from: investor})
       const pre = await this.athtoken.balanceOf(investor)
       await this.ico.authorize([investor], {from: admin})
+      const post = await this.athtoken.balanceOf(investor)
+      post.minus(pre).should.be.bignumber.equal(value * (800 + /* time bonus */ 320) + /* early bonus */ 1200*10**18)
+    })
+
+    it('does receive tokens after authorizationOne', async function () {
+      const value = ether(10)
+      await increaseTimeTo(this.startTime)
+      await this.ico.buyTokens({value, from: investor})
+      const pre = await this.athtoken.balanceOf(investor)
+      await this.ico.authorizeOne(investor, {from: admin})
       const post = await this.athtoken.balanceOf(investor)
       post.minus(pre).should.be.bignumber.equal(value * (800 + /* time bonus */ 320) + /* early bonus */ 1200*10**18)
     })
